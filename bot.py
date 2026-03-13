@@ -6,7 +6,7 @@ import asyncio
 
 # Включим логирование
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
@@ -174,18 +174,27 @@ async def show_final_profile(update: Update, context: ContextTypes.DEFAULT_TYPE)
     reply_markup = InlineKeyboardMarkup(keyboard)
     profile_text = create_profile_text(user_id)
     
+    # Экранируем специальные символы для MarkdownV2
+    profile_text = profile_text.replace('-', '\\-').replace('.', '\\.').replace('!', '\\!')
+    
     if hasattr(update, 'callback_query') and update.callback_query:
-        await update.callback_query.edit_message_text(
-            text=f"```\n{profile_text}\n```",
-            parse_mode='MarkdownV2',
-            reply_markup=reply_markup
-        )
+        try:
+            await update.callback_query.edit_message_text(
+                text=f"```\n{profile_text}\n```",
+                parse_mode='MarkdownV2',
+                reply_markup=reply_markup
+            )
+        except Exception as e:
+            logger.error(f"Error: {e}")
     else:
-        await update.message.reply_text(
-            text=f"```\n{profile_text}\n```",
-            parse_mode='MarkdownV2',
-            reply_markup=reply_markup
-        )
+        try:
+            await update.message.reply_text(
+                text=f"```\n{profile_text}\n```",
+                parse_mode='MarkdownV2',
+                reply_markup=reply_markup
+            )
+        except Exception as e:
+            logger.error(f"Error: {e}")
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -217,7 +226,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(f"Введите новое значение для поля '{field_names[field]}':")
     elif action == 'add_field_start':
         context.user_data['editing_field'] = 'new_field_title'
-        await query.edit_message_text("Введите НАЗВАНИЕ для новой строки:")
+        await query.edit_message_text("Введите НАЗВАНИЕ для новой строки (например: Город, Работа):")
         return CUSTOM_FIELD_TITLE
 
 async def handle_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -264,11 +273,11 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await show_final_profile(update, context)
 
 def main():
-    # Создаем приложение БЕЗ кастомного request
+    # ПРОСТОЙ ЗАПУСК - БЕЗ ВСЯКИХ HTTPXRequest!
     application = Application.builder().token(TOKEN).build()
     
-    # ConversationHandler
-    profile_conv_handler = ConversationHandler(
+    # Добавляем обработчики
+    application.add_handler(ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
             NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
@@ -284,15 +293,20 @@ def main():
             CUSTOM_FIELD_VALUE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_custom_field_value)]
         },
         fallbacks=[CommandHandler('cancel', cancel)]
-    )
+    ))
     
-    application.add_handler(profile_conv_handler)
     application.add_handler(CallbackQueryHandler(button_callback, pattern='^(edit_|refresh|restart|add_field_start)'))
     application.add_handler(CommandHandler('profile', profile))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_edit_text))
     
-    print("🤖 Бот запускается...")
+    print("✅ Бот успешно запущен!")
+    print(f"🤖 Токен: {TOKEN[:10]}... (скрыт)")
+    print("📝 Используйте /start для создания профиля")
+    
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"❌ Ошибка: {e}")
