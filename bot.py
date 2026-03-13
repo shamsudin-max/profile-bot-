@@ -11,26 +11,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Токен бота (можно будет менять через переменные окружения)
-TOKEN = os.getenv('BOT_TOKEN', '8755447855:AAEH0FyQbDcVIzQ5ad0E7bkeYLPqoARaF64')
+# Токен берется из переменных окружения
+TOKEN = os.getenv('BOT_TOKEN')  # Без значения по умолчанию!
 
 # Настройки прокси (опционально)
 PROXY_URL = os.getenv('PROXY_URL', None)
 
-# Создаем request с прокси если нужно
+# Создаем request с правильными параметрами для новой версии
 if PROXY_URL:
     request = HTTPXRequest(
-        connection_timeout=60.0,
-        read_timeout=60.0,
-        write_timeout=60.0,
+        timeout=60.0,  # В новой версии используется просто timeout
         pool_timeout=60.0,
         proxy_url=PROXY_URL,
     )
 else:
     request = HTTPXRequest(
-        connection_timeout=60.0,
-        read_timeout=60.0,
-        write_timeout=60.0,
+        timeout=60.0,  # В новой версии используется просто timeout
         pool_timeout=60.0,
     )
 
@@ -193,6 +189,9 @@ async def show_final_profile(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     profile_text = create_profile_text(user_id)
+    
+    # Экранируем специальные символы для MarkdownV2
+    profile_text = profile_text.replace('-', '\\-').replace('.', '\\.').replace('!', '\\!')
     
     if hasattr(update, 'callback_query') and update.callback_query:
         await update.callback_query.edit_message_text(
