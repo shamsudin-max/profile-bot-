@@ -1,6 +1,6 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes, ConversationHandler
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, ConversationHandler
 import os
 
 # Включим логирование
@@ -16,10 +16,10 @@ TOKEN = os.getenv('BOT_TOKEN')
 # Состояния
 (NAME, AGE, HOBBY, CONTACT, BEST_FRIEND, CHANNEL, CUSTOM) = range(7)
 
-# Данные
+# Данные пользователей
 user_data = {}
 
-# Рамки
+# Рамки для профиля
 TOP = "╔═════════════════╗"
 TITLE = "║         👤  ПРОФИЛЬ          ║"
 MID = "╠═════════════════╣"
@@ -27,7 +27,7 @@ BOT = "╚═════════════════╝"
 EMPTY = "║                 ║"
 
 def make_profile(user_id):
-    data = user_data[user_id]
+    data = user_data.get(user_id, {})
     lines = [
         TOP, TITLE, MID,
         f"║ 📝 Имя: {data.get('name', '')}",
@@ -56,134 +56,145 @@ def make_profile(user_id):
     ]
     return "\n".join(lines)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    user_data[uid] = {
+def start(update, context):
+    user_id = update.effective_user.id
+    user_data[user_id] = {
         'name': '', 'age': '', 'hobby': '', 'contact': '', 
         'best_friend': '', 'channel': 'нету', 'custom': '',
         'username': update.effective_user.username or 'нет'
     }
-    await update.message.reply_text("Привет! Как тебя зовут?")
+    update.message.reply_text("🌟 **Создание профиля** 🌟\n\nДля начала, напиши свое **Имя**:", parse_mode='Markdown')
     return NAME
 
-async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    user_data[uid]['name'] = update.message.text
-    await update.message.reply_text("Сколько тебе лет?")
+def get_name(update, context):
+    user_id = update.effective_user.id
+    user_data[user_id]['name'] = update.message.text
+    update.message.reply_text("✅ Имя сохранено!\n\nТеперь напиши свой **Возраст**:", parse_mode='Markdown')
     return AGE
 
-async def get_age(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    user_data[uid]['age'] = update.message.text
-    await update.message.reply_text("Какое у тебя хобби?")
+def get_age(update, context):
+    user_id = update.effective_user.id
+    user_data[user_id]['age'] = update.message.text
+    update.message.reply_text("✅ Возраст сохранен!\n\nРасскажи о своем **Хобби**:", parse_mode='Markdown')
     return HOBBY
 
-async def get_hobby(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    user_data[uid]['hobby'] = update.message.text
-    await update.message.reply_text("Как с тобой связаться?")
+def get_hobby(update, context):
+    user_id = update.effective_user.id
+    user_data[user_id]['hobby'] = update.message.text
+    update.message.reply_text("✅ Хобби сохранено!\n\nУкажи **Контакт** для связи:", parse_mode='Markdown')
     return CONTACT
 
-async def get_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    user_data[uid]['contact'] = update.message.text
-    await update.message.reply_text("Кто твой лучший друг?")
+def get_contact(update, context):
+    user_id = update.effective_user.id
+    user_data[user_id]['contact'] = update.message.text
+    update.message.reply_text("✅ Контакт сохранен!\n\nКто твой **Best friend**?", parse_mode='Markdown')
     return BEST_FRIEND
 
-async def get_best_friend(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    user_data[uid]['best_friend'] = update.message.text
+def get_best_friend(update, context):
+    user_id = update.effective_user.id
+    user_data[user_id]['best_friend'] = update.message.text
     
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("✅ Указать канал", callback_data='add_channel')],
-        [InlineKeyboardButton("⏭️ Пропустить", callback_data='skip_channel')]
-    ])
-    await update.message.reply_text("Хочешь указать канал?", reply_markup=keyboard)
+    keyboard = [[
+        InlineKeyboardButton("✅ Указать канал", callback_data='add_channel'),
+        InlineKeyboardButton("⏭️ Пропустить", callback_data='skip_channel')
+    ]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    update.message.reply_text("Хочешь указать канал?", reply_markup=reply_markup)
     return CHANNEL
 
-async def channel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def channel_callback(update, context):
     query = update.callback_query
-    await query.answer()
+    query.answer()
     
     if query.data == 'skip_channel':
-        await show_profile(update, context)
+        show_profile(update, context)
         return ConversationHandler.END
     else:
-        await query.edit_message_text("Напиши название канала:")
+        query.edit_message_text("Напиши название канала:")
         return CHANNEL
 
-async def get_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    user_data[uid]['channel'] = update.message.text
-    await show_profile(update, context)
+def get_channel(update, context):
+    user_id = update.effective_user.id
+    user_data[user_id]['channel'] = update.message.text
+    show_profile(update, context)
     return ConversationHandler.END
 
-async def show_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
+def show_profile(update, context):
+    user_id = update.effective_user.id
     
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("➕ Добавить строку", callback_data='add_custom')],
-        [InlineKeyboardButton("🔄 Обновить", callback_data='refresh')]
-    ])
+    keyboard = [[
+        InlineKeyboardButton("➕ Добавить строку", callback_data='add_custom'),
+        InlineKeyboardButton("🔄 Обновить", callback_data='refresh')
+    ]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     
-    text = make_profile(uid)
+    text = make_profile(user_id)
     
     if hasattr(update, 'callback_query'):
-        await update.callback_query.edit_message_text(
+        update.callback_query.edit_message_text(
             text=f"```\n{text}\n```",
             parse_mode='MarkdownV2',
-            reply_markup=keyboard
+            reply_markup=reply_markup
         )
     else:
-        await update.message.reply_text(
+        update.message.reply_text(
             text=f"```\n{text}\n```",
             parse_mode='MarkdownV2',
-            reply_markup=keyboard
+            reply_markup=reply_markup
         )
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def button_handler(update, context):
     query = update.callback_query
-    await query.answer()
+    query.answer()
     
     if query.data == 'refresh':
-        await show_profile(update, context)
+        show_profile(update, context)
     elif query.data == 'add_custom':
-        await query.edit_message_text("Введите текст для новой строки:")
+        query.edit_message_text("Введите текст для новой строки:")
         return CUSTOM
 
-async def get_custom(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    user_data[uid]['custom'] = update.message.text
-    await show_profile(update, context)
+def get_custom(update, context):
+    user_id = update.effective_user.id
+    user_data[user_id]['custom'] = update.message.text
+    show_profile(update, context)
+    return ConversationHandler.END
+
+def cancel(update, context):
+    update.message.reply_text('❌ Отменено. Начните заново с /start')
     return ConversationHandler.END
 
 def main():
-    # МАКСИМАЛЬНО ПРОСТОЙ ЗАПУСК
-    app = Application.builder().token(TOKEN).build()
+    # СОЗДАЕМ UPDATER (для старых версий библиотеки)
+    updater = Updater(TOKEN, use_context=True)
+    dp = updater.dispatcher
     
     # ConversationHandler
-    conv = ConversationHandler(
+    conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
-            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
-            AGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_age)],
-            HOBBY: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_hobby)],
-            CONTACT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_contact)],
-            BEST_FRIEND: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_best_friend)],
+            NAME: [MessageHandler(Filters.text & ~Filters.command, get_name)],
+            AGE: [MessageHandler(Filters.text & ~Filters.command, get_age)],
+            HOBBY: [MessageHandler(Filters.text & ~Filters.command, get_hobby)],
+            CONTACT: [MessageHandler(Filters.text & ~Filters.command, get_contact)],
+            BEST_FRIEND: [MessageHandler(Filters.text & ~Filters.command, get_best_friend)],
             CHANNEL: [
-                CallbackQueryHandler(channel_callback),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, get_channel)
+                CallbackQueryHandler(channel_callback, pattern='^(add_channel|skip_channel)$'),
+                MessageHandler(Filters.text & ~Filters.command, get_channel)
             ],
-            CUSTOM: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_custom)]
+            CUSTOM: [MessageHandler(Filters.text & ~Filters.command, get_custom)]
         },
-        fallbacks=[CommandHandler('cancel', lambda u,c: ConversationHandler.END)]
+        fallbacks=[CommandHandler('cancel', cancel)]
     )
     
-    app.add_handler(conv)
-    app.add_handler(CallbackQueryHandler(button_handler, pattern='^(add_custom|refresh)$'))
+    dp.add_handler(conv_handler)
+    dp.add_handler(CallbackQueryHandler(button_handler, pattern='^(add_custom|refresh)$'))
     
-    print("✅ БОТ ЗАПУЩЕН!")
-    app.run_polling()
+    print("✅ БОТ ЗАПУЩЕН НА СТАРОЙ ВЕРСИИ!")
+    
+    # Запускаем бота
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == '__main__':
     main()
