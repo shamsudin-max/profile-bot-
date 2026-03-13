@@ -1,8 +1,8 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes, ConversationHandler
-from telegram.request import HTTPXRequest
 import os
+import asyncio
 
 # Включим логирование
 logging.basicConfig(
@@ -12,23 +12,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Токен берется из переменных окружения
-TOKEN = os.getenv('BOT_TOKEN')  # Без значения по умолчанию!
-
-# Настройки прокси (опционально)
-PROXY_URL = os.getenv('PROXY_URL', None)
-
-# Создаем request с правильными параметрами для новой версии
-if PROXY_URL:
-    request = HTTPXRequest(
-        timeout=60.0,  # В новой версии используется просто timeout
-        pool_timeout=60.0,
-        proxy_url=PROXY_URL,
-    )
-else:
-    request = HTTPXRequest(
-        timeout=60.0,  # В новой версии используется просто timeout
-        pool_timeout=60.0,
-    )
+TOKEN = os.getenv('BOT_TOKEN')
 
 # Состояния для ConversationHandler
 (NAME, AGE, HOBBY, CONTACT, BEST_FRIEND, CHANNEL, 
@@ -190,9 +174,6 @@ async def show_final_profile(update: Update, context: ContextTypes.DEFAULT_TYPE)
     reply_markup = InlineKeyboardMarkup(keyboard)
     profile_text = create_profile_text(user_id)
     
-    # Экранируем специальные символы для MarkdownV2
-    profile_text = profile_text.replace('-', '\\-').replace('.', '\\.').replace('!', '\\!')
-    
     if hasattr(update, 'callback_query') and update.callback_query:
         await update.callback_query.edit_message_text(
             text=f"```\n{profile_text}\n```",
@@ -283,8 +264,8 @@ async def profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await show_final_profile(update, context)
 
 def main():
-    # Создаем приложение
-    application = Application.builder().token(TOKEN).request(request).build()
+    # Создаем приложение БЕЗ кастомного request
+    application = Application.builder().token(TOKEN).build()
     
     # ConversationHandler
     profile_conv_handler = ConversationHandler(
