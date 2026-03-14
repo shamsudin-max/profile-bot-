@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 TOKEN = '8755447855:AAEH0FyQbDcVIzQ5ad0E7bkeYLPqoARaF64'
 
 # Прокси (НОВЫЙ РАБОЧИЙ)
-PROXY = 'socks5://167.99.233.33:1080'
+PROXY = 'socks5://51.89.21.99:1080'
 
 # Состояния
 (NAME, AGE, HOBBY, CONTACT, BEST_FRIEND, CHANNEL, 
